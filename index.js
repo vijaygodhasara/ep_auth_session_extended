@@ -77,8 +77,8 @@ var buildOptions = function(reqOpts, opts) {
 };
 
 var getSessionId = function(opts) {
-	var createAuthor = function() {
-	  var options = buildOptions(opts, {
+  var createAuthor = function() {
+    var options = buildOptions(opts, {
       apiMethod: 'createAuthorIfNotExistsFor',
       body: {
         authorName: opts.authorName,
@@ -86,12 +86,12 @@ var getSessionId = function(opts) {
       }
     });
 
-	  return makeRequest({
+    return makeRequest({
       options: options,
       dataField: 'authorID'
     });
   };
-	var createGroup = function(authorID) {
+  var createGroup = function(authorID) {
     return new Promise(function(resolve, reject) {
       var options = buildOptions(opts, {
         apiMethod: 'createGroupIfNotExistsFor',
@@ -140,21 +140,21 @@ var getSessionEndDate = function(opts) {
 };
 
 exports.registerRoute = function(hook_name, args, cb) {
-	args.app.get("/auth_session", function(req, res) {
-		var r = '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">' + "\n";
+  args.app.get("/auth_session", function(req, res) {
+    var r = '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">' + "\n";
 
-		r += '<html>' + "\n";
-		r += '<head>' + "\n";
-		r += '<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">' + "\n";
-		r += '</head>' + "\n";
-		r += '<body>' + "\n";
-		r += '<script type="text/javascript">' + "\n";
-		r += '{{script}}' + "\n";
+    r += '<html>' + "\n";
+    r += '<head>' + "\n";
+    r += '<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">' + "\n";
+    r += '</head>' + "\n";
+    r += '<body>' + "\n";
+    r += '<script type="text/javascript">' + "\n";
+    r += '{{script}}' + "\n";
     r += '</script>' + "\n";
     r += '</body>' + "\n";
     r += '</html>' + "\n";
 
-		var sendResponse = function(script) {
+    var sendResponse = function(script) {
       res.send(r.replace('{{script}}', script));
     };
 
@@ -229,8 +229,8 @@ exports.registerRoute = function(hook_name, args, cb) {
           createSessionAndRedirect();
         }
       });
-		} else {
+    } else {
       createSessionAndRedirect();
     }
-	});
+  });
 };
