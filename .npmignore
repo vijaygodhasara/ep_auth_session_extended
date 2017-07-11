@@ -6,3 +6,4 @@
 .idea
 .eslintrc
 npm-debug.log
+.ep_initialized
