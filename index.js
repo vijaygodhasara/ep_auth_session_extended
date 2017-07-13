@@ -2,6 +2,8 @@ var request = require('request'),
   	Promise = require('promise'),
   	extend = require('util')._extend;
 
+var API_VERSION = '1.2.13';
+
 var apiError = function (message, status, error) {
   return {
     name: 'EtherpadError',
@@ -194,7 +196,7 @@ exports.registerRoute = function(hook_name, args, cb) {
           host: req.headers.host,
           protocol: req.protocol,
           apiKey: req.query.apiKey,
-          apiVersion: '1.2.13',
+          apiVersion: API_VERSION,
           authorName: req.query.authorName,
           authorMapper: req.query.authorMapper,
           groupMapper: req.query.groupMapper,
@@ -219,7 +221,7 @@ exports.registerRoute = function(hook_name, args, cb) {
         host: req.headers.host,
         protocol: req.protocol,
         apiKey: req.query.apiKey,
-        apiVersion: '1.2.13',
+        apiVersion: API_VERSION,
         sessionID: req.query.sessionID
       }).then(function(validUntil) {
         if(parseInt(validUntil) > (new Date()).getTime()) {
