@@ -4,6 +4,13 @@ var request = require('request'),
 
 var API_VERSION = '1.2.13';
 
+var isNull = function(obj) {
+    return !obj ||
+      typeof obj === 'undefined' ||
+      obj === null ||
+      /^n\s*u\s*l\s*l$/g.test(('' + obj).trim());
+};
+
 var apiError = function (message, status, error) {
   return {
     name: 'EtherpadError',
@@ -216,7 +223,7 @@ exports.registerRoute = function(hook_name, args, cb) {
       }
     };
 
-    if (!!eval(req.query.sessionID)) {
+    if (!isNull(req.query.sessionID)) {
       getSessionEndDate({
         host: req.headers.host,
         protocol: req.protocol,
