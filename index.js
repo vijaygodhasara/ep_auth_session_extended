@@ -239,6 +239,8 @@ exports.registerRoute = function(hook_name, args, cb) {
           refreshSession();
           createSessionAndRedirect();
         }
+      }).catch(function (err) {
+        res.status(err.status).send(JSON.stringify(err));
       });
     } else {
       createSessionAndRedirect();
