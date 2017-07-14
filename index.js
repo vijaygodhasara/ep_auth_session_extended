@@ -52,13 +52,19 @@ var apiRequest = function (options) {
 var makeRequest = function(opts) {
   return new Promise(function(resolve, reject) {
     apiRequest(opts.options).then(function(result) {
-      if (result.response.statusCode !== 200) {
+      if (result.response.statusCode !== 200 || result.data.code !== 0) {
         var message = result.data.message || result.data.body.message;
-        reject(apiError(message, result.response.statusCode, result.data));
+        var code = result.response.statusCode !== 200
+          ? result.response.statusCode
+          : 500;
+        reject(apiError(message, code, result.data));
         return;
       }
 
-      var res = opts.dataField ? result.data.data[opts.dataField] : result.data;
+      var res = (opts.dataField && !!result.data.data)
+        ? result.data.data[opts.dataField]
+        : result.data;
+
       resolve(res);
     }).catch(function (err) {
       reject(err);
@@ -150,6 +156,15 @@ var getSessionEndDate = function(opts) {
   });
 };
 
+var getCommonRequestParams = function(req) {
+  return {
+    host: req.hostname + ':' + req.socket.localPort,
+    protocol: req.protocol,
+    apiKey: req.query.apiKey,
+    apiVersion: API_VERSION
+  };
+};
+
 exports.registerRoute = function(hook_name, args, cb) {
   args.app.get("/auth_session", function(req, res) {
     var r = '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">' + "\n";
@@ -201,16 +216,12 @@ exports.registerRoute = function(hook_name, args, cb) {
 
     var createSessionAndRedirect = function () {
       if(req.query.apiKey) {
-        getSessionId({
-          host: req.headers.host,
-          protocol: req.protocol,
-          apiKey: req.query.apiKey,
-          apiVersion: API_VERSION,
+        getSessionId(extend(getCommonRequestParams(req), {
           authorName: req.query.authorName,
           authorMapper: req.query.authorMapper,
           groupMapper: req.query.groupMapper,
           validUntil: req.query.validUntil
-        }).then(function (res) {
+        })).then(function (res) {
           var newQuery = extend({}, req.query);
           var queryValues = [];
           ['apiKey', 'authorName', 'authorMapper', 'groupMapper', 'validUntil', 'padName'].forEach(function (key) {
@@ -226,13 +237,9 @@ exports.registerRoute = function(hook_name, args, cb) {
     };
 
     if (!isNull(req.query.sessionID)) {
-      getSessionEndDate({
-        host: req.headers.host,
-        protocol: req.protocol,
-        apiKey: req.query.apiKey,
-        apiVersion: API_VERSION,
+      getSessionEndDate(extend(getCommonRequestParams(req), {
         sessionID: req.query.sessionID
-      }).then(function(validUntil) {
+      })).then(function(validUntil) {
         if(parseInt(validUntil) > (new Date()).getTime()) {
           redirectWithSession(req.query.sessionID, validUntil, req.query.groupID, req.query.padName);
         } else {
@@ -240,7 +247,14 @@ exports.registerRoute = function(hook_name, args, cb) {
           createSessionAndRedirect();
         }
       }).catch(function (err) {
-        res.status(err.status).send(JSON.stringify(err));
+        // if sessionID doesn't exist, refresh session
+        if(err.error.code === 1) {
+          refreshSession();
+        }
+        console.error(JSON.stringify(err));
+        var error = err.name + ': ' + err.message + '<br/>' +
+          err.error.message + ' (internal error code: ' + err.error.code + ')';
+        res.status(err.status).send(error);
       });
     } else {
       createSessionAndRedirect();
