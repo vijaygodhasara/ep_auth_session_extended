@@ -60,6 +60,8 @@ var makeRequest = function(opts) {
 
       var res = opts.dataField ? result.data.data[opts.dataField] : result.data;
       resolve(res);
+    }).catch(function (err) {
+      reject(err);
     });
   });
 };
