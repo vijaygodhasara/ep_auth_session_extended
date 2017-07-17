@@ -16,7 +16,7 @@ module.exports = {
   },
   getCommonRequestParams: function(req) {
     return {
-      host: req.hostname + ':' + req.socket.localPort,
+      host: 'localhost:' + req.socket.localPort,
       protocol: req.protocol,
       apiKey: req.query.apiKey,
       apiVersion: API_VERSION
