@@ -93,31 +93,31 @@ var buildOptions = function(reqOpts, opts) {
   return options;
 };
 
-var getSessionId = function(opts) {
-  var createAuthor = function() {
-    var options = buildOptions(opts, {
-      apiMethod: 'createAuthorIfNotExistsFor',
-      body: {
-        authorName: opts.authorName,
-        authorMapper: opts.authorMapper
-      }
-    });
+var createGroup = function(opts) {
+  var options = buildOptions(opts, {
+    apiMethod: 'createGroupIfNotExistsFor',
+    body: {groupMapper: opts.groupMapper}
+  });
+  return makeRequest({
+    options: options,
+    dataField: 'groupID'
+  });
+};
 
-    return makeRequest({
-      options: options,
-      dataField: 'authorID'
-    });
-  };
-  var createGroup = function(authorID) {
+var getSessionId = function(opts) {
+  var createAuthor = function(groupID) {
     return new Promise(function(resolve, reject) {
       var options = buildOptions(opts, {
-        apiMethod: 'createGroupIfNotExistsFor',
-        body: {groupMapper: opts.groupMapper}
+        apiMethod: 'createAuthorIfNotExistsFor',
+        body: {
+          authorName: opts.authorName,
+          authorMapper: opts.authorMapper
+        }
       });
       makeRequest({
         options: options,
-        dataField: 'groupID'
-      }).then(function (groupID) {
+        dataField: 'authorID'
+      }).then(function (authorID) {
         resolve({authorID: authorID, groupID: groupID});
       });
     });
@@ -141,7 +141,19 @@ var getSessionId = function(opts) {
     });
   };
 
-  return createAuthor().then(createGroup).then(createSession);
+  return createGroup(opts).then(createAuthor).then(createSession);
+};
+
+var buildNewQueryString = function (query) {
+  var newQuery = extend({}, query);
+  var queryValues = [];
+  ['apiKey', 'authorName', 'authorMapper', 'groupMapper', 'validUntil', 'padName'].forEach(function (key) {
+    delete newQuery[key];
+  });
+  for(var key in newQuery) {
+    queryValues.push(key + '=' + encodeURIComponent(newQuery[key]));
+  }
+  return '?' + queryValues.join('&');
 };
 
 var getSessionEndDate = function(opts) {
@@ -185,26 +197,29 @@ exports.registerRoute = function(hook_name, args, cb) {
     };
 
     var redirectWithSession = function(sessionID, validUntil, groupID, padName, queryString) {
-      var script = '';
-      script += 'document.cookie = "sessionID=' + encodeURIComponent(sessionID) + '; path=/;";' + "\n";
+      return new Promise(function(resolve, reject) {
+        var script = '';
+        script += 'document.cookie = "sessionID=' + encodeURIComponent(sessionID) + '; path=/;";' + "\n";
 
-      if (padName) {
-        var redirectUrl = '/p/';
+        if (padName) {
+          var redirectUrl = '/p/';
 
-        if (groupID) {
-          redirectUrl += encodeURIComponent(groupID) + '$';
+          if (groupID) {
+            redirectUrl += encodeURIComponent(groupID) + '$';
+          }
+
+          redirectUrl += encodeURIComponent(padName);
+          redirectUrl += queryString || '';
+
+          script += "window.parent.postMessage(JSON.parse('" +
+            "{\"action\":\"redirect\"," +
+            "\"sessionID\":\"" + sessionID + "\"," +
+            "\"validUntil\":\"" + validUntil + "\"," +
+            "\"url\":\"' + document.location.origin + '" + redirectUrl + "\"}'), \"*\")";
         }
-
-        redirectUrl += encodeURIComponent(padName);
-        redirectUrl += queryString || '';
-
-        script += "window.parent.postMessage(JSON.parse('" +
-          "{\"action\":\"redirect\"," +
-          "\"sessionID\":\"" + sessionID + "\"," +
-          "\"validUntil\":\"" + validUntil + "\"," +
-          "\"url\":\"' + document.location.origin + '" + redirectUrl + "\"}'), \"*\")";
-      }
-      sendResponse(script);
+        sendResponse(script);
+        resolve();
+      });
     };
 
     var refreshSession = function() {
@@ -215,49 +230,61 @@ exports.registerRoute = function(hook_name, args, cb) {
     };
 
     var createSessionAndRedirect = function () {
-      if(req.query.apiKey) {
+      return new Promise(function (resolve, reject) {
         getSessionId(extend(getCommonRequestParams(req), {
           authorName: req.query.authorName,
           authorMapper: req.query.authorMapper,
           groupMapper: req.query.groupMapper,
           validUntil: req.query.validUntil
         })).then(function (res) {
-          var newQuery = extend({}, req.query);
-          var queryValues = [];
-          ['apiKey', 'authorName', 'authorMapper', 'groupMapper', 'validUntil', 'padName'].forEach(function (key) {
-            delete newQuery[key];
-          });
-          for(var key in newQuery) {
-            queryValues.push(key + '=' + newQuery[key]);
-          }
-          var qs = '?' + queryValues.join('&');
-          redirectWithSession(res.sessionID, res.validUntil, res.groupID, req.query.padName, qs);
+          var qs = buildNewQueryString(req.query);
+          return redirectWithSession(res.sessionID, res.validUntil, res.groupID, req.query.padName, qs);
+        }).then(function () {
+          resolve();
+        }).catch(function (err) {
+          reject(err);
         });
-      }
+      });
     };
 
-    if (!isNull(req.query.sessionID)) {
-      getSessionEndDate(extend(getCommonRequestParams(req), {
-        sessionID: req.query.sessionID
-      })).then(function(validUntil) {
-        if(parseInt(validUntil) > (new Date()).getTime()) {
-          redirectWithSession(req.query.sessionID, validUntil, req.query.groupID, req.query.padName);
-        } else {
-          refreshSession();
-          createSessionAndRedirect();
-        }
-      }).catch(function (err) {
-        // if sessionID doesn't exist, refresh session
-        if(err.error.code === 1) {
-          refreshSession();
-        }
-        console.error(JSON.stringify(err));
-        var error = err.name + ': ' + err.message + '<br/>' +
-          err.error.message + ' (internal error code: ' + err.error.code + ')';
-        res.status(err.status).send(error);
-      });
+    if(!!req.query.apiKey) {
+      if (!isNull(req.query.sessionID)) {
+        var redirect = function(validUntil) {
+          if (parseInt(validUntil) > (new Date()).getTime()) {
+            return new Promise(function (resolve, reject) {
+              createGroup(extend(getCommonRequestParams(req), {
+                groupMapper: req.query.groupMapper
+              })).then(function (groupID) {
+                var qs = buildNewQueryString(req.query);
+                return redirectWithSession(req.query.sessionID, validUntil, groupID, req.query.padName, qs).then(function () {
+                  resolve();
+                });
+              });
+            });
+          } else {
+            refreshSession();
+            return createSessionAndRedirect();
+          }
+        };
+        getSessionEndDate(extend(getCommonRequestParams(req), {
+          sessionID: req.query.sessionID
+        })).then(redirect).catch(function (err) {
+          // if sessionID doesn't exist, refresh session
+          if(err.error && err.error.code === 1) {
+            refreshSession();
+          }
+          console.error(JSON.stringify(err));
+          var error = err.name + ': ' + err.message + '<br/>' +
+            err.error.message + ' (internal error code: ' + err.error.code + ')';
+          res.status(err.status).send(error);
+        });
+      } else {
+        createSessionAndRedirect();
+      }
     } else {
-      createSessionAndRedirect();
+      var err = "no API key in query";
+      console.error("no API key in query");
+      res.status(400).send(err);
     }
   });
 };
