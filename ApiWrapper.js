@@ -112,6 +112,8 @@ module.exports = {
           dataField: 'authorID'
         }).then(function (authorID) {
           resolve({authorID: authorID, groupID: groupID});
+        }).catch(function (err) {
+          reject(err);
         });
       });
     };
@@ -130,6 +132,8 @@ module.exports = {
           dataField: 'sessionID'
         }).then(function (sessionID) {
           resolve(extend({sessionID: sessionID, validUntil: opts.validUntil}, res2));
+        }).catch(function (err) {
+            reject(err);
         });
       });
     };

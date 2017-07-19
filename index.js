@@ -65,13 +65,20 @@ exports.registerRoute = function(hook_name, args, cb) {
           validUntil: req.query.validUntil
         })).then(function (res) {
           var qs = common.buildNewQueryString(req.query);
-          return redirectWithSession(res.sessionID, res.validUntil, res.groupID, req.query.padName, qs);
-        }).then(function () {
-          resolve();
+          redirectWithSession(res.sessionID, res.validUntil, res.groupID, req.query.padName, qs).then(function () {
+            resolve();
+          });
         }).catch(function (err) {
           reject(err);
         });
       });
+    };
+
+    var halt = function(err) {
+      console.error(JSON.stringify(err));
+      var error = err.name + ': ' + err.message + '<br/>' +
+        err.error.message + ' (internal error code: ' + err.error.code + ')';
+      res.status(err.status).send(error);
     };
 
     if(!!req.query.apiKey) {
@@ -96,17 +103,13 @@ exports.registerRoute = function(hook_name, args, cb) {
         apiWrapper.getSessionEndDate(extend(common.getCommonRequestParams(req), {
           sessionID: req.query.sessionID
         })).then(redirect).catch(function (err) {
-          // if sessionID doesn't exist, refresh session
           if(err.error && err.error.code === 1) {
             refreshSession();
           }
-          console.error(JSON.stringify(err));
-          var error = err.name + ': ' + err.message + '<br/>' +
-            err.error.message + ' (internal error code: ' + err.error.code + ')';
-          res.status(err.status).send(error);
+          halt(err);
         });
       } else {
-        createSessionAndRedirect();
+        createSessionAndRedirect().catch(halt);
       }
     } else {
       var err = "no API key in query";
