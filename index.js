@@ -65,7 +65,7 @@ exports.registerRoute = function(hook_name, args, cb) {
           validUntil: req.query.validUntil
         })).then(function (res) {
           var qs = common.buildNewQueryString(req.query);
-          redirectWithSession(res.sessionID, res.validUntil, res.groupID, req.query.padName, qs).then(function () {
+          return redirectWithSession(res.sessionID, res.validUntil, res.groupID, req.query.padName, qs).then(function () {
             resolve();
           });
         }).catch(function (err) {
@@ -93,6 +93,8 @@ exports.registerRoute = function(hook_name, args, cb) {
                 return redirectWithSession(req.query.sessionID, validUntil, groupID, req.query.padName, qs).then(function () {
                   resolve();
                 });
+              }).catch(function (err) {
+                reject(err);
               });
             });
           } else {
