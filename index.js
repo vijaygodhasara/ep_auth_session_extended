@@ -38,11 +38,13 @@ exports.registerRoute = function(hook_name, args, cb) {
           redirectUrl += encodeURIComponent(padName);
           redirectUrl += queryString || '';
 
-          script += "window.parent.postMessage(JSON.parse('" +
-            "{\"action\":\"redirect\"," +
-            "\"sessionID\":\"" + sessionID + "\"," +
-            "\"validUntil\":\"" + validUntil + "\"," +
-            "\"url\":\"' + document.location.origin + '" + redirectUrl + "\"}'), \"*\")";
+          var data = {
+            action: 'redirect',
+            sessionID: sessionID,
+            validUntil: validUntil,
+            path: redirectUrl
+          };
+          script += "window.parent.postMessage(JSON.parse('" + JSON.stringify(data) + "'), \"*\")";
         }
         sendResponse(script);
         resolve();
