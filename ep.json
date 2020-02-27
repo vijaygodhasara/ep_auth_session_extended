@@ -3,7 +3,7 @@
     {
       "name": "auth_session",
       "hooks": {
-        "expressCreateServer" : "ep_auth_session_extended/index:registerRoute"
+        "expressCreateServer" : "ep_auth_session_extended/lib/index:registerRoute"
       }
     }
   ]
